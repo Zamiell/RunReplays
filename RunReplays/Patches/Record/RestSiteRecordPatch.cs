@@ -19,6 +19,6 @@ public static class RestSiteRecordPatch
         }
 
         string optionId = options[index].OptionId;
-        PlayerActionBuffer.Record(new ChooseRestSiteOptionCommand(optionId).ToString());
+        PlayerActionBuffer.Record(new ChooseRestSiteOptionCommand(optionId));
     }
 }

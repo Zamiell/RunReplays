@@ -56,6 +56,15 @@ public class SelectGridCardCommand : ReplayCommand
         }
 
         var selected = new List<CardModel>();
+        if (Indices.Length == 1 && TryInferUpgradeSelection(cards, out int upgradedIndex))
+        {
+            CardGridScreenCapture.ClickCard(screen, cards[upgradedIndex]);
+            selected.Add(cards[upgradedIndex]);
+            CardGridScreenCapture.ConfirmSelection(screen, selected);
+            CardGridScreenCapture.ActiveScreen = null;
+            return ExecuteResult.Ok();
+        }
+
         if (Indices.All(idx => idx < 0))
         {
             if (!TryInferNegativeSelection(cards, out int inferredIndex))
@@ -80,6 +89,80 @@ public class SelectGridCardCommand : ReplayCommand
         CardGridScreenCapture.ConfirmSelection(screen, selected);
         CardGridScreenCapture.ActiveScreen = null;
         return ExecuteResult.Ok();
+    }
+
+    private static bool TryInferUpgradeSelection(
+        IReadOnlyList<CardModel> cards,
+        out int inferredIndex)
+    {
+        inferredIndex = -1;
+
+        RunReplays.ReplayEngine.GetReplayContext(
+            out _,
+            out _,
+            out IReadOnlyList<ReplayCommand> next);
+        string? nextHand = next
+            .Select(command => ExtractHandSnapshot(command.StateSuffix))
+            .FirstOrDefault(hand => !string.IsNullOrWhiteSpace(hand));
+        if (string.IsNullOrWhiteSpace(nextHand))
+            return false;
+
+        string? nextPlayedCardId = next
+            .OfType<PlayCardCommand>()
+            .Select(command => RecordedCardId(command.Comment))
+            .FirstOrDefault(id => !string.IsNullOrWhiteSpace(id));
+        if (!string.IsNullOrWhiteSpace(nextPlayedCardId))
+        {
+            for (int i = 0; i < cards.Count; i++)
+            {
+                if (cards[i].Id.Entry == nextPlayedCardId)
+                {
+                    GD.Print($"[RunReplays] [SelectGridCard] Inferred upgrade selection as index {i} ({cards[i].Title}) from next played card {nextPlayedCardId}.");
+                    PlayerActionBuffer.LogDispatcher(
+                        $"[SelectGridCard] Inferred upgrade selection as index {i} ({cards[i].Title}) from next played card {nextPlayedCardId}.");
+                    inferredIndex = i;
+                    return true;
+                }
+            }
+        }
+
+        var upgradedTitles = nextHand
+            .Split(',')
+            .Select(part => part.Trim())
+            .Where(part => part.EndsWith("+", System.StringComparison.Ordinal))
+            .Select(part => NormalizeCardTitle(part[..^1]))
+            .ToHashSet();
+        if (upgradedTitles.Count == 0)
+            return false;
+
+        for (int i = 0; i < cards.Count; i++)
+        {
+            if (upgradedTitles.Contains(NormalizeCardTitle(cards[i].Title)))
+            {
+                GD.Print($"[RunReplays] [SelectGridCard] Inferred upgrade selection as index {i} ({cards[i].Title}) from next hand [{nextHand}].");
+                PlayerActionBuffer.LogDispatcher(
+                    $"[SelectGridCard] Inferred upgrade selection as index {i} ({cards[i].Title}) from next hand [{nextHand}].");
+                inferredIndex = i;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static string? RecordedCardId(string? comment)
+    {
+        if (string.IsNullOrWhiteSpace(comment))
+            return null;
+
+        const string prefix = "CARD.";
+        int start = comment.IndexOf(prefix, System.StringComparison.Ordinal);
+        if (start < 0)
+            return null;
+
+        start += prefix.Length;
+        int end = comment.IndexOfAny([' ', ')'], start);
+        return end > start ? comment[start..end] : comment[start..];
     }
 
     private static bool TryInferNegativeSelection(

@@ -22,7 +22,7 @@ public static class ChestOpenRecordPatch
         if (ReplayEngine.IsActive) return;
 
         var cmd = new OpenChestCommand();
-        PlayerActionBuffer.Record(cmd.ToString());
+        PlayerActionBuffer.Record(cmd);
     }
 }
 
@@ -43,6 +43,6 @@ public static class TreasureRoomRecordPatch
             relicTitle = relics[index.Value].Title.GetFormattedText();
 
         var cmd = new TakeChestRelicCommand { Comment = relicTitle };
-        PlayerActionBuffer.Record(cmd.ToLogString());
+        PlayerActionBuffer.Record(cmd);
     }
 }

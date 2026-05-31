@@ -45,6 +45,6 @@ public static class NDeckUpgradeSelectScreenRecordPatch
 
         PlayerActionBuffer.RecordVerboseOnly($"[NDeckUpgradeSelectScreen] Upgraded cards: [{titles}]");
         var indices = cardList.Select(card => deckList == null ? -1 : deckList.ToList().IndexOf(card)).ToArray();
-        PlayerActionBuffer.RecordMinimalOnly(new RunReplays.Commands.SelectGridCardCommand(indices).ToString()!);
+        PlayerActionBuffer.RecordMinimalOnly(new RunReplays.Commands.SelectGridCardCommand(indices));
     }
 }

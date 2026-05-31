@@ -117,7 +117,7 @@ public static class FromChooseACardScreenPatch
         var cmd = new SelectCardFromScreenCommand(index);
         PlayerActionBuffer.LogToDevConsole(
             $"[CardChoiceScreenPatch] Recording: {cmd}");
-        PlayerActionBuffer.Record(cmd.ToString());
+        PlayerActionBuffer.Record(cmd);
 
         return selected!;
     }

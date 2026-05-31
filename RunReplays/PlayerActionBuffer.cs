@@ -202,13 +202,9 @@ public static class PlayerActionBuffer
 
             string timestamp = DateTime.Now.ToString("HH:mm:ss.fff");
             string actionText = action.ToString()!;
-
-            // Grab the pre-state (captured after the previous action or at
-            // turn start) and update it for the next action.
             string? preState = _pendingPreState;
             _pendingPreState = GetBattleStateSummary();
 
-            // Append pre-action state to minimal entry for replay validation.
             string minimalEntry = preState != null
                 ? actionText + StateSeparator + preState
                 : actionText;
@@ -288,6 +284,11 @@ public static class PlayerActionBuffer
         ReplayDispatcher.ClearDispatchableCache();
     }
 
+    public static void Record(ReplayCommand command)
+    {
+        Record(command.ToLogString());
+    }
+
     /// <summary>
     /// Records only into the verbose log (e.g. decorative separators or
     /// per-option lines that the minimal log replaces with a summary).
@@ -315,6 +316,11 @@ public static class PlayerActionBuffer
 
         _minimalEntries.Enqueue(text);
         ReplayDispatcher.ClearDispatchableCache();
+    }
+
+    public static void RecordMinimalOnly(ReplayCommand command)
+    {
+        RecordMinimalOnly(command.ToLogString());
     }
 
     /// <summary>
@@ -484,4 +490,3 @@ public static class CardPlayRecordPatch
         PlayerActionBuffer.RecordCardPlayEarly(cmd.ToLogString());
     }
 }
-

@@ -64,7 +64,7 @@ public static class TakeCardRecordPatch
             if (holders[i].card.Title == title)
             {
                 var cmd = new TakeCardCommand(i) { Comment = title };
-                PlayerActionBuffer.Record(cmd.ToLogString());
+                PlayerActionBuffer.Record(cmd);
                 return;
             }
         }
@@ -90,13 +90,13 @@ public static class TakeCardRecordPatch
         {
             var cmd = TakeCardCommand.Sacrifice();
             cmd.Comment = "sacrifice";
-            PlayerActionBuffer.Record(cmd.ToLogString());
+            PlayerActionBuffer.Record(cmd);
         }
         else if (afterSelected == PostAlternateCardRewardAction.EndSelectionAndDoNotCompleteReward)
         {
             var cmd = TakeCardCommand.Skip();
             cmd.Comment = "skip";
-            PlayerActionBuffer.Record(cmd.ToLogString());
+            PlayerActionBuffer.Record(cmd);
         }
     }
 }

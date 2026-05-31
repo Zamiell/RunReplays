@@ -1,5 +1,6 @@
 using System.Linq;
 using Godot;
+using MegaCrit.Sts2.Core.Combat;
 using MegaCrit.Sts2.Core.Entities.Creatures;
 using MegaCrit.Sts2.Core.GameActions.Multiplayer;
 using MegaCrit.Sts2.Core.Models;
@@ -39,6 +40,13 @@ public class PlayCardCommand : ReplayCommand
     public override ExecuteResult Execute()
     {
         PlayerActionBuffer.LogDispatcher("Should execute card....");
+        if (CombatAlreadyAdvancedToRewards())
+        {
+            PlayerActionBuffer.LogDispatcher(
+                $"[RunReplays] Skipping stale play-card command after combat ended: {ToLogString()}.");
+            return ExecuteResult.Ok();
+        }
+
         if (!CardPlayReplayPatch.IsCombatReady())
         {
             PlayerActionBuffer.LogDispatcher("Combat not ready to play cards, retrying in 100 ms");
@@ -58,7 +66,8 @@ public class PlayCardCommand : ReplayCommand
             return ExecuteResult.Retry(100);
         }
 
-        card = ResolveCurrentHandCard(card);
+        bool recordedCardWasInHand;
+        card = ResolveCurrentHandCard(card, out recordedCardWasInHand);
         PlayerActionBuffer.LogDispatcher($"Found card to play: {card.Id.Entry}");
 
         Creature? target = null;
@@ -75,11 +84,30 @@ public class PlayCardCommand : ReplayCommand
         PlayerActionBuffer.LogDispatcher($"Card play returning {played}");
         if (played)
             return ExecuteResult.Ok();
+        if (recordedCardWasInHand && RecordedCardLeftHand(card))
+        {
+            PlayerActionBuffer.LogDispatcher(
+                $"[RunReplays] Treating play-card command as complete because the recorded card left hand: {ToLogString()}.");
+            return ExecuteResult.Ok();
+        }
         return ExecuteResult.Retry(100);
     }
 
-    private CardModel ResolveCurrentHandCard(CardModel resolved)
+    private static bool CombatAlreadyAdvancedToRewards()
     {
+        bool rewardsVisible = ReplayState.ActiveRewardsScreen != null
+            && GodotObject.IsInstanceValid(ReplayState.ActiveRewardsScreen)
+            && ReplayState.ActiveRewardsScreen.IsInsideTree();
+
+        return rewardsVisible
+            && (CombatManager.Instance == null
+                || !CombatManager.Instance.IsInProgress
+                || CombatManager.Instance.IsOverOrEnding);
+    }
+
+    private CardModel ResolveCurrentHandCard(CardModel resolved, out bool recordedCardWasInHand)
+    {
+        recordedCardWasInHand = false;
         var hand = CardPlayReplayPatch.ResolveLocalPlayer()
             ?.PlayerCombatState
             ?.Hand
@@ -87,10 +115,11 @@ public class PlayCardCommand : ReplayCommand
         if (hand == null)
             return resolved;
 
-        if (hand.Any(card => ReferenceEquals(card, resolved)))
+        string? recordedId = RecordedCardId();
+        if (hand.Any(card => ReferenceEquals(card, resolved))
+            && (recordedId == null || resolved.Id.Entry == recordedId))
             return resolved;
 
-        string? recordedId = RecordedCardId();
         if (recordedId != null)
         {
             GD.Print(
@@ -98,6 +127,7 @@ public class PlayCardCommand : ReplayCommand
             var matching = hand.LastOrDefault(card => card.Id.Entry == recordedId);
             if (matching != null)
             {
+                recordedCardWasInHand = true;
                 GD.Print(
                     $"[RunReplays] [PlayCard] selected recorded card {recordedId} from hand for command {ToLogString()}");
                 PlayerActionBuffer.LogDispatcher(
@@ -106,7 +136,26 @@ public class PlayCardCommand : ReplayCommand
             }
         }
 
+        if (hand.Any(card => ReferenceEquals(card, resolved)))
+            return resolved;
+
         return resolved;
+    }
+
+    private bool RecordedCardLeftHand(CardModel resolved)
+    {
+        var hand = CardPlayReplayPatch.ResolveLocalPlayer()
+            ?.PlayerCombatState
+            ?.Hand
+            ?.Cards;
+        if (hand == null)
+            return false;
+
+        string? recordedId = RecordedCardId();
+        if (recordedId != null)
+            return !hand.Any(card => card.Id.Entry == recordedId);
+
+        return !hand.Any(card => ReferenceEquals(card, resolved));
     }
 
     private string? RecordedCardId()

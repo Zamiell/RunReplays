@@ -88,7 +88,7 @@ public static class HandCardSelectRecordPatch
 
         var cmd = new SelectHandCardsCommand(indices.ToArray());
         PlayerActionBuffer.LogToDevConsole($"[HandCardSelectRecordPatch] Recording: {cmd}");
-        PlayerActionBuffer.Record(cmd.ToString());
+        PlayerActionBuffer.Record(cmd);
     }
 
 }
@@ -177,8 +177,7 @@ public static class HandCardSelectForDiscardRecordPatch
 
         var cmd = new SelectHandCardsCommand(indices.ToArray());
         PlayerActionBuffer.LogToDevConsole($"[HandCardSelectForDiscardRecord] Recording: {cmd}");
-        PlayerActionBuffer.Record(cmd.ToString());
+        PlayerActionBuffer.Record(cmd);
     }
 
 }
-

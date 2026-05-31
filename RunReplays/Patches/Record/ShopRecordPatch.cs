@@ -12,7 +12,7 @@ using RunReplays.Commands;
 /// IsPurchasing: suppresses duplicate SyncLocalObtained* recordings in
 ///   BattleRewardPatch while a merchant purchase is in progress.
 ///
-/// PendingLabel: the Buy* string captured in the OnTryPurchaseWrapper prefix,
+/// PendingCommand: the Buy* command captured in the OnTryPurchaseWrapper prefix,
 ///   before ClearAfterPurchase() nulls out the entry's item reference.
 ///   Written by InvokePurchaseCompleted (on success) or cleared by
 ///   InvokePurchaseFailed (on failure).
@@ -20,7 +20,7 @@ using RunReplays.Commands;
 internal static class ShopPurchaseState
 {
     internal static bool IsPurchasing;
-    internal static string? PendingLabel;
+    internal static ReplayCommand? PendingCommand;
 }
 
 /// <summary>
@@ -51,7 +51,7 @@ public static class ShopOpenRecordPatch
         // second call (e.g. from a UI refresh) would record a duplicate OpenShop
         // that later stalls ProcessNextPurchase during replay.
         if (__instance.Inventory?.IsOpen == false)
-            PlayerActionBuffer.Record(new OpenShopCommand().ToString());
+            PlayerActionBuffer.Record(new OpenShopCommand());
     }
 }
 
@@ -65,19 +65,19 @@ public static class ShopPurchaseStartPatch
     {
         // Record immediately so the command appears in the log as soon as
         // the player clicks.  If the purchase fails, UndoLast removes it.
-        string? label = __instance switch
+        ReplayCommand? command = __instance switch
         {
             MerchantCardEntry card     => card.CreationResult?.Card?.Title is string t
-                                             ? new BuyCardCommand(t).ToString() : null,
+                                             ? new BuyCardCommand(t) : null,
             MerchantRelicEntry relic   => relic.Model  != null
-                                             ? new BuyRelicCommand(relic.Model.Title.GetFormattedText()).ToString()  : null,
+                                             ? new BuyRelicCommand(relic.Model.Title.GetFormattedText())  : null,
             MerchantPotionEntry potion => potion.Model != null
-                                             ? new BuyPotionCommand(potion.Model.Title.GetFormattedText()).ToString() : null,
+                                             ? new BuyPotionCommand(potion.Model.Title.GetFormattedText()) : null,
             _ => null
         };
-        if (label != null)
-            PlayerActionBuffer.Record(label);
-        ShopPurchaseState.PendingLabel = label;
+        if (command != null)
+            PlayerActionBuffer.Record(command);
+        ShopPurchaseState.PendingCommand = command;
         ShopPurchaseState.IsPurchasing = true;
     }
 }
@@ -91,9 +91,9 @@ public static class ShopCardRemovalPurchaseStartPatch
         // Record immediately so BuyCardRemoval precedes RemoveCardFromDeck in the
         // log — the card-removal UI fires CardPileCmd.RemoveFromDeck before
         // InvokePurchaseCompleted, so recording at completion would invert the order.
-        // PendingLabel is left null so ShopPurchaseCompletedPatch skips re-recording.
-        PlayerActionBuffer.Record(new BuyCardRemovalCommand().ToString());
-        ShopPurchaseState.PendingLabel = null;
+        // PendingCommand is left null so ShopPurchaseCompletedPatch skips re-recording.
+        PlayerActionBuffer.Record(new BuyCardRemovalCommand());
+        ShopPurchaseState.PendingCommand = null;
         ShopPurchaseState.IsPurchasing = true;
     }
 }
@@ -108,7 +108,7 @@ public static class ShopPurchaseCompletedPatch
     {
         // Already recorded at purchase start — just clear state.
         ShopPurchaseState.IsPurchasing = false;
-        ShopPurchaseState.PendingLabel = null;
+        ShopPurchaseState.PendingCommand = null;
     }
 }
 
@@ -121,9 +121,9 @@ public static class ShopPurchaseFailedPatch
     public static void Prefix()
     {
         // Purchase failed — undo the speculatively recorded entry.
-        if (ShopPurchaseState.PendingLabel != null)
+        if (ShopPurchaseState.PendingCommand != null)
             PlayerActionBuffer.UndoLast();
         ShopPurchaseState.IsPurchasing = false;
-        ShopPurchaseState.PendingLabel = null;
+        ShopPurchaseState.PendingCommand = null;
     }
 }

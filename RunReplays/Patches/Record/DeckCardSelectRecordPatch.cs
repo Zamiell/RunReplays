@@ -45,7 +45,7 @@ public static class DeckCardSelectRecordPatch
             indices.Add(index);
         }
 
-        string command = new SelectGridCardCommand(indices.ToArray()).ToString();
+        var command = new SelectGridCardCommand(indices.ToArray());
         if (DeckRemovalState.PendingRemoval)
         {
             DeckRemovalState.PendingRemoval = false;

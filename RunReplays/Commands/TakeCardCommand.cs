@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using Godot;
 using MegaCrit.Sts2.Core.Entities.CardRewardAlternatives;
@@ -85,31 +86,66 @@ public class TakeCardCommand : ReplayCommand
             return ExecuteResult.Retry(200);
 
         // Collect card holders sorted by X position for correct visual order.
-        var holders = new List<Godot.Control>();
+        var holders = new List<(Godot.Control Holder, CardModel Card)>();
         foreach (Godot.Node child in cardRow.GetChildren())
         {
             if (child is not Godot.Control ctrl) continue;
             var prop = child.GetType().GetProperty(
                 "CardModel", BindingFlags.Public | BindingFlags.Instance);
-            if (prop?.GetValue(child) is MegaCrit.Sts2.Core.Models.CardModel)
-                holders.Add(ctrl);
+            if (prop?.GetValue(child) is CardModel card)
+                holders.Add((ctrl, card));
         }
-        holders.Sort((a, b) => a.Position.X.CompareTo(b.Position.X));
+        holders.Sort((a, b) => a.Holder.Position.X.CompareTo(b.Holder.Position.X));
 
-        if (CardIndex < 0 || CardIndex >= holders.Count)
+        int selectedIndex = ResolveRecordedCardIndex(holders) ?? CardIndex;
+        if (selectedIndex < 0 || selectedIndex >= holders.Count)
         {
             PlayerActionBuffer.LogMigrationWarning(
-                $"[TakeCard] Index {CardIndex} out of range (count={holders.Count}) — retrying.");
+                $"[TakeCard] Index {selectedIndex} out of range (count={holders.Count}) — retrying.");
             return ExecuteResult.Retry(200);
         }
 
-        var holder = holders[CardIndex];
+        var holder = holders[selectedIndex].Holder;
         holder.EmitSignal("Pressed", holder);
-        PlayerActionBuffer.LogDispatcher($"[TakeCard] Selected card [{CardIndex}].");
+        PlayerActionBuffer.LogDispatcher(
+            $"[TakeCard] Selected card [{selectedIndex}] ({holders[selectedIndex].Card.Title}).");
         ReplayState.CardRewardSelectionScreen = null;
         ReplayDispatcher.DispatchNow();
         return ExecuteResult.Ok();
     }
+
+    private int? ResolveRecordedCardIndex(IReadOnlyList<(Godot.Control Holder, CardModel Card)> holders)
+    {
+        if (string.IsNullOrWhiteSpace(Comment)
+            || Comment.Equals(SkipKeyword, System.StringComparison.OrdinalIgnoreCase)
+            || Comment.Equals(SacrificeKeyword, System.StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        string recorded = NormalizeCardTitle(Comment);
+        if (recorded.Length == 0)
+            return null;
+
+        for (int i = 0; i < holders.Count; i++)
+        {
+            if (NormalizeCardTitle(holders[i].Card.Title) == recorded)
+            {
+                if (i != CardIndex)
+                {
+                    PlayerActionBuffer.LogDispatcher(
+                        $"[TakeCard] Resolved recorded card '{Comment}' at index {i} instead of logged index {CardIndex}.");
+                }
+                return i;
+            }
+        }
+
+        return null;
+    }
+
+    private static string NormalizeCardTitle(string value)
+        => new(value
+            .Where(ch => char.IsLetterOrDigit(ch))
+            .Select(char.ToUpperInvariant)
+            .ToArray());
 
     private ExecuteResult ExecuteSkip(NCardRewardSelectionScreen screen)
     {

@@ -351,7 +351,7 @@ public static class MainMenuButtonInjector
                 {
                     Comment = ClaimRewardCommand.DescribeReward(reward)
                 };
-                PlayerActionBuffer.Record(cmd.ToLogString());
+                PlayerActionBuffer.Record(cmd);
                 return;
             }
             index++;

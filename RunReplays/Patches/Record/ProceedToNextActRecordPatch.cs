@@ -15,6 +15,6 @@ public static class ProceedToNextActRecordPatch
     {
         if (ReplayEngine.IsActive) return;
 
-        PlayerActionBuffer.Record(new ProceedToNextActCommand().ToString()!);
+        PlayerActionBuffer.Record(new ProceedToNextActCommand());
     }
 }

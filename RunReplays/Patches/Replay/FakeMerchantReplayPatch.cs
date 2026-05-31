@@ -28,7 +28,7 @@ public static class FakeMerchantOpenRecordPatch
         if (ReplayEngine.IsActive)
             return;
 
-        PlayerActionBuffer.Record(new OpenFakeShopCommand().ToString());
+        PlayerActionBuffer.Record(new OpenFakeShopCommand());
     }
 }
 

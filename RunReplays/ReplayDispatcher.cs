@@ -502,6 +502,10 @@ public static class ReplayDispatcher
             && GodotObject.IsInstanceValid(ReplayState.ActiveRewardsScreen)
             && ReplayState.ActiveRewardsScreen.IsInsideTree())
         {
+            if (ReplayEngine.PeekNext(out ReplayCommand? rewardNext)
+                && rewardNext is PlayCardCommand)
+                types.Add(typeof(PlayCardCommand));
+
             types.Add(typeof(ClaimRewardCommand));
             types.Add(typeof(TakeCardCommand));
             types.Add(typeof(ProceedToMapCommand));
@@ -796,7 +800,7 @@ public static class ReplayDispatcher
         BattleRewardPatch.IsProcessingCardReward = false;
         DeckRemovalState.PendingRemoval = false;
         ShopPurchaseState.IsPurchasing = false;
-        ShopPurchaseState.PendingLabel = null;
+        ShopPurchaseState.PendingCommand = null;
         EventSelectionPatch.PendingIndex = null;
         SimpleGridContext.Pending = false;
         HandCardSelectRecordPatch.SuppressNext = false;

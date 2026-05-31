@@ -94,7 +94,7 @@ public static class CrystalSphereCellClickedPatch
         int x = Traverse.Create(__0).Property("X").GetValue<int>();
         int y = Traverse.Create(__0).Property("Y").GetValue<int>();
 
-        PlayerActionBuffer.Record(new CrystalSphereClickCommand(x, y, toolVal).ToString());
+        PlayerActionBuffer.Record(new CrystalSphereClickCommand(x, y, toolVal));
     }
 }
 
